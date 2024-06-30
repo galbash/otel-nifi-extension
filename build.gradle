@@ -1,0 +1,95 @@
+plugins {
+  id "java"
+
+  /*
+  Instrumentation agent extension mechanism expects a single jar containing everything required
+  for your extension. This also includes any external libraries that your extension uses and
+  cannot access from application classpath (see comment below about `javax.servlet-api` dependency).
+
+  Thus we use Shadow Gradle plugin to package our classes and all required runtime dependencies
+  into a single jar.
+  See https://imperceptiblethoughts.com/shadow/ for more details about Shadow plugin.
+   */
+  id "com.github.johnrengelman.shadow" version "8.1.1"
+  id "com.diffplug.spotless" version "6.25.0"
+
+  id "io.opentelemetry.instrumentation.muzzle-generation" version "2.5.0-alpha-SNAPSHOT"
+  id "io.opentelemetry.instrumentation.muzzle-check" version "2.5.0-alpha-SNAPSHOT"
+}
+
+group 'io.opentelemetry.javaagent.instrumentation.nifi'
+version '1.0.0'
+
+ext {
+  versions = [
+    // this line is managed by .github/scripts/update-sdk-version.sh
+    opentelemetrySdk           : "1.37.0",
+
+    // these lines are managed by .github/scripts/update-version.sh
+    opentelemetryJavaagent     : "2.5.0-SNAPSHOT",
+    opentelemetryJavaagentAlpha: "2.5.0-alpha-SNAPSHOT",
+
+    junit                      : "5.10.2"
+  ]
+
+  deps = [
+    autoservice: dependencies.create(group: 'com.google.auto.service', name: 'auto-service', version: '1.1.1')
+  ]
+}
+
+repositories {
+  mavenCentral()
+  maven {
+    name = "sonatype"
+    url = uri("https://oss.sonatype.org/content/repositories/snapshots")
+  }
+}
+
+dependencies {
+  implementation(platform("io.opentelemetry:opentelemetry-bom:${versions.opentelemetrySdk}"))
+
+  // these serve as a test of the instrumentation boms
+  implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${versions.opentelemetryJavaagent}"))
+  implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:${versions.opentelemetryJavaagentAlpha}"))
+
+  /*
+  Interfaces and SPIs that we implement. We use `compileOnly` dependency because during
+  runtime all necessary classes are provided by javaagent itself.
+   */
+  compileOnly("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi")
+  compileOnly("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api")
+  compileOnly("io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api")
+
+  //Provides @AutoService annotation that makes registration of our SPI implementations much easier
+  compileOnly deps.autoservice
+  annotationProcessor deps.autoservice
+
+  implementation("org.apache.nifi:nifi-api:1.22.0")
+  implementation("org.apache.nifi:nifi-repository-models:1.22.0")
+  implementation("org.apache.kafka:kafka-clients:2.6.3")
+
+
+  //TODO remove when start using io.opentelemetry.instrumentation.javaagent-instrumentation plugin
+  add("codegen", "io.opentelemetry.javaagent:opentelemetry-javaagent-tooling:${versions.opentelemetryJavaagentAlpha}")
+  add("muzzleBootstrap", "io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations-support:${versions.opentelemetryJavaagentAlpha}")
+  add("muzzleTooling", "io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api:${versions.opentelemetryJavaagentAlpha}")
+  add("muzzleTooling", "io.opentelemetry.javaagent:opentelemetry-javaagent-tooling:${versions.opentelemetryJavaagentAlpha}")
+}
+
+
+tasks {
+
+  compileJava {
+    options.release.set(8)
+  }
+
+  assemble.dependsOn(shadowJar)
+}
+
+muzzle {
+  pass {
+    group.set("org.apache.nifi")
+    module.set("nifi-api")
+    versions.set("(,)")
+  }
+}
