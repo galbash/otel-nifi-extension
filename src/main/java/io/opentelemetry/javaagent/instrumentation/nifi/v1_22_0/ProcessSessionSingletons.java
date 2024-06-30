@@ -31,6 +31,11 @@ public final class ProcessSessionSingletons {
           Collections.emptyList()
   );
 
+  static List<String> externalPropagationThreadPrefixes = InstrumentationConfig.get().getList(
+          "otel.instrumentation.nifi.external-propagation-thread-prefixes",
+          Collections.singletonList("ListenHTTP")
+  );
+
   private ProcessSessionSingletons() {}
 
   private static SpanBuilder createSpanBuilder() {
@@ -42,8 +47,12 @@ public final class ProcessSessionSingletons {
           .setAttribute("nifi.component.type", pConfig.connectable.getComponentType())
           .setAttribute("nifi.processgroup.name", pConfig.connectable.getProcessGroup().getName())
           .setAttribute("nifi.component.id", pConfig.connectable.getIdentifier());
-    } else if (Thread.currentThread().getName().startsWith("ListenHTTP")) {
-      return tracer.spanBuilder("ListenHTTP");
+    } else {
+      for (String prefix: externalPropagationThreadPrefixes) {
+        if (Thread.currentThread().getName().startsWith(prefix)) {
+          return tracer.spanBuilder(prefix);
+        }
+      }
     }
     return tracer.spanBuilder("Handle Flow File");
   }
@@ -51,14 +60,15 @@ public final class ProcessSessionSingletons {
   public static Context getDefaultContext() {
     ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
     if (pConfig.connectable != null) {
-      for (String processorName: externalPropagationProcessors) {
-        if (pConfig.connectable.getComponentType().equals(processorName)) {
+      if (externalPropagationProcessors.contains(pConfig.connectable.getComponentType())) {
+        return Java8BytecodeBridge.currentContext();
+      }
+    } else {
+      for (String prefix: externalPropagationThreadPrefixes) {
+        if (Thread.currentThread().getName().startsWith(prefix)) {
           return Java8BytecodeBridge.currentContext();
         }
       }
-      // ListenHTTP is on a different thread so won't be saved as the active processor
-    } else if (Thread.currentThread().getName().startsWith("ListenHTTP")) {
-      return Java8BytecodeBridge.currentContext();
     }
 
     return Java8BytecodeBridge.rootContext();
