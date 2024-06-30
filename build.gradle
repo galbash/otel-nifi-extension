@@ -45,6 +45,14 @@ repositories {
   }
 }
 
+configurations {
+  /*
+  We create a separate gradle configuration to grab a published Otel instrumentation agent.
+  We don't need the agent during development of this extension module.
+  This agent is used only during integration test.
+  */
+  otel
+}
 dependencies {
   implementation(platform("io.opentelemetry:opentelemetry-bom:${versions.opentelemetrySdk}"))
 
@@ -65,9 +73,12 @@ dependencies {
   annotationProcessor deps.autoservice
 
   implementation("org.apache.nifi:nifi-api:1.22.0")
+  implementation("org.apache.nifi:nifi-framework-core-api:1.22.0")
   compileOnly("org.apache.nifi:nifi-repository-models:1.22.0")
   compileOnly("org.apache.kafka:kafka-clients:2.6.3")
 
+  //Otel Java instrumentation that we use and extend during integration tests
+  otel("io.opentelemetry.javaagent:opentelemetry-javaagent:${versions.opentelemetryJavaagent}")
 
   //TODO remove when start using io.opentelemetry.instrumentation.javaagent-instrumentation plugin
   add("codegen", "io.opentelemetry.javaagent:opentelemetry-javaagent-tooling:${versions.opentelemetryJavaagentAlpha}")

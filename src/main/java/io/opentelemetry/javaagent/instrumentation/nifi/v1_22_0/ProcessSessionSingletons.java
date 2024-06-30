@@ -29,13 +29,14 @@ public final class ProcessSessionSingletons {
   private ProcessSessionSingletons() {}
 
   private static SpanBuilder createSpanBuilder() {
-    ActiveProcessorConfig pConfig = ActiveProcessorSaver.get();
-    if (pConfig.processContext != null && pConfig.processor != null) {
+    ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
+    if (pConfig.processContext != null && pConfig.connectable != null) {
       return tracer.spanBuilder(
-              pConfig.processor.getClass().getSimpleName() + ":" + pConfig.processContext.getName())
+              pConfig.connectable.getComponentType() + ":" + pConfig.processContext.getName())
           .setAttribute("nifi.component.name", pConfig.processContext.getName())
-          .setAttribute("nifi.component.type", pConfig.processor.getClass().getName())
-          .setAttribute("nifi.component.id", pConfig.processor.getIdentifier());
+          .setAttribute("nifi.component.type", pConfig.connectable.getComponentType())
+          .setAttribute("nifi.processgroup.name", pConfig.connectable.getProcessGroup().getName())
+          .setAttribute("nifi.component.id", pConfig.connectable.getIdentifier());
     } else if (Thread.currentThread().getName().startsWith("ListenHTTP")) {
       return tracer.spanBuilder("ListenHTTP");
     }
@@ -43,10 +44,10 @@ public final class ProcessSessionSingletons {
   }
 
   public static Context getDefaultContext() {
-    ActiveProcessorConfig pConfig = ActiveProcessorSaver.get();
-    if (pConfig.processor != null) {
+    ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
+    if (pConfig.connectable != null) {
       for (String processorName: externalPropagationProcessors) {
-        if (pConfig.processor.getClass().getSimpleName().equals(processorName)) {
+        if (pConfig.connectable.getComponentType().equals(processorName)) {
           return Java8BytecodeBridge.currentContext();
         }
       }

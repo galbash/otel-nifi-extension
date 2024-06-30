@@ -41,9 +41,9 @@ java.arg.27=-Dotel.javaagent.debug=true
 ```
 
 ## Configuration options
-| System property                                             | Type | Default      | Description                                                                                                           |
-|-------------------------------------------------------------|------|--------------|-----------------------------------------------------------------------------------------------------------------------|
-| `otel.instrumentation.nifi.external-propagation-processors` | List | `["GetWMQ"]` | A list of processors for which the external active context is used when a flow file is created / read without context |
+| System property                                             | Type | Default  | Description                                                                                                           |
+|-------------------------------------------------------------|------|----------|-----------------------------------------------------------------------------------------------------------------------|
+| `otel.instrumentation.nifi.external-propagation-processors` | List | `GetWMQ` | A list of processors for which the external active context is used when a flow file is created / read without context |
 
 ## Embed extensions in the OpenTelemetry Agent
 

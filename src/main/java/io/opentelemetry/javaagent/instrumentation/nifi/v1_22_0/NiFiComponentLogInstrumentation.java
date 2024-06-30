@@ -5,46 +5,48 @@
 
 package io.opentelemetry.javaagent.instrumentation.nifi.v1_22_0;
 
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.javaagent.bootstrap.Java8BytecodeBridge;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
 import io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
+import org.apache.nifi.connectable.Connectable;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSessionFactory;
-import org.apache.nifi.processor.Processor;
 
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static net.bytebuddy.matcher.ElementMatchers.namedOneOf;
 import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 
-public class NiFiProcessorInstrumentation implements TypeInstrumentation {
+public class NiFiComponentLogInstrumentation implements TypeInstrumentation {
+
+  @Override
+  public ElementMatcher<ClassLoader> classLoaderOptimization() {
+    return hasClassesNamed("org.apache.nifi.logging.ComponentLog");
+  }
+
   @Override
   public ElementMatcher<TypeDescription> typeMatcher() {
     return AgentElementMatchers.implementsInterface(
-        namedOneOf("org.apache.nifi.processor.Processor"));
+        namedOneOf("org.apache.nifi.logging.ComponentLog"));
   }
 
   @Override
   public void transform(TypeTransformer typeTransformer) {
-    typeTransformer.applyAdviceToMethod(namedOneOf("onTrigger")
-            .and(takesArguments(ProcessContext.class, ProcessSessionFactory.class)),
-        NiFiProcessorInstrumentation.class.getName() + "$OnTriggerAdvice");
+    typeTransformer.applyAdviceToMethod(namedOneOf("error"),
+
+        NiFiComponentLogInstrumentation.class.getName() + "$ErrorAdvice");
   }
 
   @SuppressWarnings("unused")
-  public static class OnTriggerAdvice {
+  public static class ErrorAdvice {
 
     @Advice.OnMethodEnter()
-    public static void onEnter(
-        @Advice.This Processor processor,
-        @Advice.Argument(0) ProcessContext processContext) {
-      ActiveProcessorSaver.set(processor, processContext);
-    }
-
-    @Advice.OnMethodExit()
-    public static void onExit() {
-      ActiveProcessorSaver.remove();
+    public static void onEnter() {
+      Java8BytecodeBridge.currentSpan().setStatus(StatusCode.ERROR);
     }
   }
 }

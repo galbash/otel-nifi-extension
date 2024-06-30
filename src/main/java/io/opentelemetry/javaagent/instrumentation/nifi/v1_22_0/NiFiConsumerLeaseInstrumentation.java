@@ -14,12 +14,18 @@ import net.bytebuddy.matcher.ElementMatcher;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.nifi.processor.ProcessSession;
 
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
 /**
  * Instrumenting Nifi Kafka processor for context injection
  */
 public class NiFiConsumerLeaseInstrumentation implements TypeInstrumentation {
+  @Override
+  public ElementMatcher<ClassLoader> classLoaderOptimization() {
+    return hasClassesNamed("org.apache.nifi.processors.kafka.pubsub.ConsumerLease");
+  }
+
   @Override
   public ElementMatcher<TypeDescription> typeMatcher() {
     return AgentElementMatchers.hasSuperType(

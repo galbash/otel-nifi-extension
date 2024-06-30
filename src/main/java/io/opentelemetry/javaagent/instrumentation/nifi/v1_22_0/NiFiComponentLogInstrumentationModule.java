@@ -16,9 +16,9 @@ import java.util.List;
 import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 
 @AutoService(InstrumentationModule.class)
-public final class NiFiProcessorInstrumentationModule extends InstrumentationModule {
-  public NiFiProcessorInstrumentationModule() {
-    super("nifi-processor");
+public final class NiFiComponentLogInstrumentationModule extends InstrumentationModule {
+  public NiFiComponentLogInstrumentationModule() {
+    super("nifi");
   }
 
   @Override
@@ -28,13 +28,13 @@ public final class NiFiProcessorInstrumentationModule extends InstrumentationMod
 
   @Override
   public ElementMatcher.Junction<ClassLoader> classLoaderMatcher() {
-    return hasClassesNamed("org.apache.nifi.processor.Processor");
+    return hasClassesNamed("org.apache.nifi.logging.ComponentLog");
   }
 
   @Override
   public List<TypeInstrumentation> typeInstrumentations() {
     ArrayList<TypeInstrumentation> result = new ArrayList<>();
-    result.add(new NiFiProcessorInstrumentation());
+    result.add(new NiFiComponentLogInstrumentation());
     return result;
   }
 }

@@ -18,6 +18,7 @@ import org.apache.nifi.processor.Relationship;
 import java.util.Collection;
 import java.util.List;
 
+import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
 /**
@@ -28,6 +29,11 @@ import static net.bytebuddy.matcher.ElementMatchers.*;
  * Inject *right* context on transfer (in case of batch find correct one)
  */
 public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
+
+  @Override
+  public ElementMatcher<ClassLoader> classLoaderOptimization() {
+    return hasClassesNamed("org.apache.nifi.controller.repository.StandardProcessSession");
+  }
 
   @Override
   public ElementMatcher<TypeDescription> typeMatcher() {
