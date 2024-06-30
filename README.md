@@ -41,9 +41,10 @@ java.arg.27=-Dotel.javaagent.debug=true
 ```
 
 ## Configuration options
-| System property                                             | Type | Default  | Description                                                                                                           |
-|-------------------------------------------------------------|------|----------|-----------------------------------------------------------------------------------------------------------------------|
-| `otel.instrumentation.nifi.external-propagation-processors` | List | `GetWMQ` | A list of processors for which the external active context is used when a flow file is created / read without context |
+| System property                                               | Type   | Default  | Description                                                                                                                                                                      |
+|---------------------------------------------------------------|--------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `otel.instrumentation.nifi.external-propagation-processors`   | List   | `GetWMQ` | A list of processors for which the external active context is used when a flow file is created / read without context                                                            |
+| `otel.instrumentation.nifi.use-links-processors`              | List   | []       | A list of processors for which when a FlowFile is created/cloned from another flow file, the child span will be set as a link and not a direct child. Useful for split use cases |
 
 ## Embed extensions in the OpenTelemetry Agent
 

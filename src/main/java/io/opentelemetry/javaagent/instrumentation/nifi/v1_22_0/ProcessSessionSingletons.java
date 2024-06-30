@@ -26,6 +26,11 @@ public final class ProcessSessionSingletons {
           Collections.singletonList("GetWMQ")
         );
 
+  static List<String> useLinksProcessors = InstrumentationConfig.get().getList(
+          "otel.instrumentation.nifi.use-links-processors",
+          Collections.emptyList()
+  );
+
   private ProcessSessionSingletons() {}
 
   private static SpanBuilder createSpanBuilder() {
@@ -60,7 +65,7 @@ public final class ProcessSessionSingletons {
   }
 
 
-  public static void startProcessSessionSpan(ProcessSession session, FlowFile flowFile) {
+  public static void startFileHandlingSpan(ProcessSession session, FlowFile flowFile) {
     // if no external context was found, use root context since current context may be spam
     Context externalContext = ExternalContextTracker.pop(session, getDefaultContext());
     Context extractedContext = GlobalOpenTelemetry.getPropagators()
@@ -78,20 +83,22 @@ public final class ProcessSessionSingletons {
     ProcessSpanTracker.set(session, flowFile, span, scope);
   }
 
-  public static void startProcessSessionSpan(
+  public static void startFileHandlingSpan(
       ProcessSession session,
       Collection<FlowFile> flowFiles) {
     for (FlowFile flowFile : flowFiles) {
       // in case of multiple files, only the last will be "active"
-      startProcessSessionSpan(session, flowFile);
+      startFileHandlingSpan(session, flowFile);
     }
   }
 
-  public static void startMergeProcessSessionSpan(
+  /**
+   * Creates a link to parents instead of setting as direct parent, allowing more then one parent.
+   */
+  public static void startMergeFilesSpan(
       ProcessSession session,
       Collection<FlowFile> inputFlowFiles,
       FlowFile outputFlowFile
-
   ) {
 
     SpanBuilder spanBuilder = createSpanBuilder();
@@ -108,6 +115,19 @@ public final class ProcessSessionSingletons {
     Span span = spanBuilder.setNoParent().startSpan();
     Scope scope = span.makeCurrent();
     ProcessSpanTracker.set(session, outputFlowFile, span, scope);
+  }
+
+  public static void startCreateFromFileSpan(
+          ProcessSession session,
+          FlowFile inputFile,
+          FlowFile createdFile
+  ) {
+    ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
+    if (useLinksProcessors.contains(pConfig.connectable.getComponentType())) {
+      startMergeFilesSpan(session, Collections.singletonList(inputFile), createdFile);
+    } else {
+      startFileHandlingSpan(session, createdFile);
+    }
   }
 
   /**

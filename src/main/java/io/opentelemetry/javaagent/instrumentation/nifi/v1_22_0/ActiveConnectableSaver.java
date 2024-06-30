@@ -18,8 +18,6 @@ public class ActiveConnectableSaver {
   private ActiveConnectableSaver() {}
 
   public static void set(Connectable connectable, ProcessContext processContext) {
-    logger.info("Setting connectable: " + connectable + " processContext: " + processContext);
-    logger.info("Properties: " + String.join(" ", Arrays.asList(connectable.getName(), connectable.getIdentifier(), connectable.getComponentType(), connectable.getProcessGroupIdentifier())));
     activeConnectableMap.set(Thread.currentThread(), connectable);
     activeProcessContextMap.set(Thread.currentThread(), processContext);
   }
@@ -30,8 +28,6 @@ public class ActiveConnectableSaver {
     if (connectable == null || processContext == null) {
       logger.warning("active connectable config is null");
     }
-    logger.info("Getting connectable: " + connectable + " processContext: " + processContext);
-    logger.info("Properties: " + String.join(" ", Arrays.asList(connectable.getName(), connectable.getIdentifier(), connectable.getComponentType(), connectable.getProcessGroupIdentifier())));
     return new ActiveConnectableConfig(connectable, processContext);
   }
 

@@ -52,15 +52,19 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
         this.getClass().getName() + "$NiFiProcessGetListAdvice");
 
     typeTransformer.applyAdviceToMethod(
-        namedOneOf("create").and(takesNoArguments().or(takesArguments(FlowFile.class))),
-        this.getClass().getName() + "$NiFiProcessGetAdvice");
+        namedOneOf("create").and(takesNoArguments()),
+        this.getClass().getName() + "$NiFiProcessGetAdvice"); // if no input file is given, create is the same as get since it's always a child of, never a link
+
+    typeTransformer.applyAdviceToMethod(
+            namedOneOf("create").and(takesArguments(FlowFile.class)),
+            this.getClass().getName() + "$NiFiProcessCreateFromFileAdvice");
+
+    typeTransformer.applyAdviceToMethod(namedOneOf("create").and(takesArguments(Collection.class)),
+            this.getClass().getName() + "$NiFiProcessCreateMergeAdvice");
 
     typeTransformer.applyAdviceToMethod(
         namedOneOf("clone").and(takesArgument(0, FlowFile.class)).and(takesArguments(3)),
-        this.getClass().getName() + "$NiFiProcessCloneAdvice");
-
-    typeTransformer.applyAdviceToMethod(namedOneOf("create").and(takesArguments(Collection.class)),
-        this.getClass().getName() + "$NiFiProcessCreateMergeAdvice");
+        this.getClass().getName() + "$NiFiProcessCreateFromFileAdvice"); // cloning is similar to create with a FlowFile parameter
 
     typeTransformer.applyAdviceToMethod(
         namedOneOf("transfer").and(takesArguments(FlowFile.class)),
@@ -90,7 +94,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
         @Advice.Return FlowFile flowFile
     ) {
       if (flowFile != null) {
-        ProcessSessionSingletons.startProcessSessionSpan(session, flowFile);
+        ProcessSessionSingletons.startFileHandlingSpan(session, flowFile);
       }
     }
   }
@@ -104,21 +108,22 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
         @Advice.Return List<FlowFile> flowFiles
     ) {
       if (flowFiles != null) {
-        ProcessSessionSingletons.startProcessSessionSpan(session, flowFiles);
+        ProcessSessionSingletons.startFileHandlingSpan(session, flowFiles);
       }
     }
   }
 
   @SuppressWarnings("unused")
-  public static class NiFiProcessCloneAdvice {
+  public static class NiFiProcessCreateFromFileAdvice {
 
     @Advice.OnMethodExit(suppress = Throwable.class)
     public static void onExit(
-        @Advice.This ProcessSession session,
-        @Advice.Return FlowFile flowFile
+            @Advice.This ProcessSession session,
+            @Advice.Argument(value = 0) FlowFile inFlowFile,
+            @Advice.Return FlowFile createdFlowFile
     ) {
-      if (flowFile != null) {
-        ProcessSessionSingletons.startProcessSessionSpan(session, flowFile);
+      if (createdFlowFile!= null) {
+        ProcessSessionSingletons.startCreateFromFileSpan(session, inFlowFile, createdFlowFile);
       }
     }
   }
@@ -132,7 +137,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
         @Advice.Return FlowFile createFlowFile,
         @Advice.Argument(0) Collection<FlowFile> inputFlowFiles
     ) {
-      ProcessSessionSingletons.startMergeProcessSessionSpan(session, inputFlowFiles,
+      ProcessSessionSingletons.startMergeFilesSpan(session, inputFlowFiles,
           createFlowFile);
     }
   }
