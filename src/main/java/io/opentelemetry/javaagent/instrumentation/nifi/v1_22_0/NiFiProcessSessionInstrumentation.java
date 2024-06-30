@@ -84,8 +84,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessGetAdvice {
 
-    //@Advice.OnMethodExit(suppress = Throwable.class)
-    @Advice.OnMethodExit()
+    @Advice.OnMethodExit(suppress = Throwable.class)
     public static void onExit(
         @Advice.This ProcessSession session,
         @Advice.Return FlowFile flowFile
@@ -99,8 +98,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessGetListAdvice {
 
-    //@Advice.OnMethodExit(suppress = Throwable.class)
-    @Advice.OnMethodExit()
+    @Advice.OnMethodExit(suppress = Throwable.class)
     public static void onExit(
         @Advice.This ProcessSession session,
         @Advice.Return List<FlowFile> flowFiles
@@ -114,8 +112,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessCloneAdvice {
 
-    //@Advice.OnMethodExit(suppress = Throwable.class)
-    @Advice.OnMethodExit()
+    @Advice.OnMethodExit(suppress = Throwable.class)
     public static void onExit(
         @Advice.This ProcessSession session,
         @Advice.Return FlowFile flowFile
@@ -129,14 +126,12 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessCreateMergeAdvice {
 
-    //@Advice.OnMethodExit(suppress = Throwable.class)
-    @Advice.OnMethodExit()
+    @Advice.OnMethodExit(suppress = Throwable.class)
     public static void onExit(
         @Advice.This ProcessSession session,
         @Advice.Return FlowFile createFlowFile,
         @Advice.Argument(0) Collection<FlowFile> inputFlowFiles
     ) {
-      //ProcessSpanTracker.close(session);
       ProcessSessionSingletons.startMergeProcessSessionSpan(session, inputFlowFiles,
           createFlowFile);
     }
@@ -145,8 +140,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessTransferAdvice {
 
-    //@Advice.OnMethodEnter(suppress = Throwable.class)
-    @Advice.OnMethodEnter()
+    @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void onEnter(
         @Advice.Argument(value = 0, readOnly = false) FlowFile flowFile,
         @Advice.This ProcessSession processSession
@@ -162,8 +156,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessTransferWithRelationshipAdvice {
 
-    //@Advice.OnMethodEnter(suppress = Throwable.class)
-    @Advice.OnMethodEnter()
+    @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void onEnter(
         @Advice.Argument(value = 0, readOnly = false) FlowFile flowFile,
         @Advice.Argument(value = 1) Relationship relationship,
@@ -180,8 +173,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessTransferListAdvice {
 
-    //@Advice.OnMethodEnter(suppress = Throwable.class)
-    @Advice.OnMethodEnter()
+    @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void onEnter(
         @Advice.Argument(value = 0, readOnly = false) Collection<FlowFile> flowFiles,
         @Advice.Argument(value = 1) Relationship relationship,
@@ -198,8 +190,7 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessCheckpointAdvice {
 
-    //@Advice.OnMethodExit(suppress = Throwable.class)
-    @Advice.OnMethodExit()
+    @Advice.OnMethodExit(suppress = Throwable.class, onThrowable = Throwable.class)
     public static void onExit(@Advice.This ProcessSession session) {
       ProcessSpanTracker.close(session);
     }
@@ -208,8 +199,8 @@ public class NiFiProcessSessionInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class NiFiProcessMigrateAdvice {
 
-    //@Advice.OnMethodExit(suppress = Throwable.class)
-    @Advice.OnMethodExit()
+    // not adding onThrowable - if migration failed we don't want to migrate spans
+    @Advice.OnMethodExit(suppress = Throwable.class)
     public static void onExit(
         @Advice.This ProcessSession oldSession,
         @Advice.Argument(0) ProcessSession newSession,

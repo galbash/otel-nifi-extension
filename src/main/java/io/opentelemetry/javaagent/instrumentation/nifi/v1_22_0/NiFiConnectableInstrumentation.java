@@ -42,14 +42,14 @@ public class NiFiConnectableInstrumentation implements TypeInstrumentation {
   @SuppressWarnings("unused")
   public static class OnTriggerAdvice {
 
-    @Advice.OnMethodEnter()
+    @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void onEnter(
         @Advice.This Connectable connectable,
         @Advice.Argument(0) ProcessContext processContext) {
       ActiveConnectableSaver.set(connectable, processContext);
     }
 
-    @Advice.OnMethodExit()
+    @Advice.OnMethodExit(suppress = Throwable.class, onThrowable = Throwable.class)
     public static void onExit() {
       ActiveConnectableSaver.remove();
     }

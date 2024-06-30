@@ -43,7 +43,7 @@ public class NiFiConsumerLeaseInstrumentation implements TypeInstrumentation {
 
   @SuppressWarnings("unused")
   public static class WriteDataAdvice {
-    @Advice.OnMethodEnter()
+    @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void onEnter(
         @Advice.Argument(0) ProcessSession session,
         @Advice.Argument(1) ConsumerRecord<byte[], byte[]> record
