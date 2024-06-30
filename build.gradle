@@ -65,8 +65,8 @@ dependencies {
   annotationProcessor deps.autoservice
 
   implementation("org.apache.nifi:nifi-api:1.22.0")
-  implementation("org.apache.nifi:nifi-repository-models:1.22.0")
-  implementation("org.apache.kafka:kafka-clients:2.6.3")
+  compileOnly("org.apache.nifi:nifi-repository-models:1.22.0")
+  compileOnly("org.apache.kafka:kafka-clients:2.6.3")
 
 
   //TODO remove when start using io.opentelemetry.instrumentation.javaagent-instrumentation plugin
@@ -76,6 +76,25 @@ dependencies {
   add("muzzleTooling", "io.opentelemetry.javaagent:opentelemetry-javaagent-tooling:${versions.opentelemetryJavaagentAlpha}")
 }
 
+//Produces a copy of upstream javaagent with this extension jar included inside it
+//The location of extension directory inside agent jar is hard-coded in the agent source code
+task extendedAgent(type: Jar) {
+  dependsOn(configurations.otel)
+  archiveFileName = "opentelemetry-javaagent.jar"
+  from zipTree(configurations.otel.singleFile)
+  from(tasks.shadowJar.archiveFile) {
+    into "extensions"
+  }
+
+  //Preserve MANIFEST.MF file from the upstream javaagent
+  doFirst {
+    manifest.from(
+            zipTree(configurations.otel.singleFile).matching {
+              include 'META-INF/MANIFEST.MF'
+            }.singleFile
+    )
+  }
+}
 
 tasks {
 

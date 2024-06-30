@@ -8,14 +8,12 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.context.propagation.TextMapSetter;
 import io.opentelemetry.javaagent.bootstrap.Java8BytecodeBridge;
+import io.opentelemetry.javaagent.bootstrap.internal.InstrumentationConfig;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -23,6 +21,10 @@ public final class ProcessSessionSingletons {
   private static final Logger logger =
       Logger.getLogger(ProcessSessionSingletons.class.getName());
   static Tracer tracer = GlobalOpenTelemetry.getTracer("nifi");
+  static List<String> externalPropagationProcessors = InstrumentationConfig.get().getList(
+          "otel.instrumentation.nifi.external-propagation-processors",
+          Collections.singletonList("GetWMQ")
+        );
 
   private ProcessSessionSingletons() {}
 
@@ -43,10 +45,12 @@ public final class ProcessSessionSingletons {
   public static Context getDefaultContext() {
     ActiveProcessorConfig pConfig = ActiveProcessorSaver.get();
     if (pConfig.processor != null) {
-      if (pConfig.processor.getClass().getSimpleName().equals("GetWMQ")) {
-        return Java8BytecodeBridge.currentContext();
+      for (String processorName: externalPropagationProcessors) {
+        if (pConfig.processor.getClass().getSimpleName().equals(processorName)) {
+          return Java8BytecodeBridge.currentContext();
+        }
       }
-      // this one works
+      // ListenHTTP is on a different thread so won't be saved as the active processor
     } else if (Thread.currentThread().getName().startsWith("ListenHTTP")) {
       return Java8BytecodeBridge.currentContext();
     }
