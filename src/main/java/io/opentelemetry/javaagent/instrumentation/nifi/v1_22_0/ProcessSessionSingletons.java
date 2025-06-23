@@ -30,11 +30,15 @@ public final class ProcessSessionSingletons {
           "otel.instrumentation.nifi.use-links-processors",
           Collections.emptyList()
   );
-
   static List<String> externalPropagationThreadPrefixes = InstrumentationConfig.get().getList(
           "otel.instrumentation.nifi.external-propagation-thread-prefixes",
           Collections.singletonList("ListenHTTP")
   );
+  static List<String> blacklistProcessors = InstrumentationConfig.get().getList(
+          "otel.instrumentation.nifi.blacklist-processors",
+          Collections.emptyList()
+  );
+
 
   private ProcessSessionSingletons() {}
 
@@ -86,6 +90,7 @@ public final class ProcessSessionSingletons {
             flowFile.getAttributes(),
             FlowFileAttributesTextMapGetter.INSTANCE
         );
+    if (!blacklistProcessors.contains(flowFile.))
     Span span = createSpanBuilder()
         .setParent(extractedContext)
         .startSpan();
