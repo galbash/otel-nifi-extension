@@ -46,6 +46,18 @@ java.arg.27=-Dotel.javaagent.debug=true
 | `otel.instrumentation.nifi.external-propagation-processors`      | List | `GetWMQ`                  | A list of processors for which the external active context is used when a flow file is created / read without context                                                                                                                                          |
 | `otel.instrumentation.nifi.use-links-processors`                 | List | []                        | A list of processors for which when a FlowFile is created/cloned from another flow file, the child span will be set as a link and not a direct child. Useful for split use cases                                                                               |
 | `otel.instrumentation.nifi.external-propagation-thread-prefixes` | List | `ListenHTTP,Consume AMPQ` | A list of thread names for which the external active context is used when a flow file is created / read without context. Useful for input processors that get messages on a different thread for which the `external-propagation-processors` flag doesn't work |
+| `otel.instrumentation.nifi.blacklist-processors-by-name`         | List | []                        | A list of processors-name that the agent will not create spans, example for this use case is when you have processors with specific name that "junk" your environment                                                                                          |
+| `otel.instrumentation.nifi.blacklist-processors-by-type`         | List | []                        | A list of processors-types that the agent will not create spans, example for this use case is when you have processors with specific type like UpdateAttribute that "junk" your environment                                                                    |
+
+## Tags Options
+To simplify the deployment, you can during runtime add tags to your processors that will make them behave in a certain way.
+Usage - add to your nifi processor name one of the following: <br><br>    ExternalPropagation - will make your processor act like external active context is used when a flow file is created / read without context <br>
+UseLinks - FlowFile is created/cloned from another flow file, the child span will be set as a link and not a direct child. Useful for split use cases<br>
+ThreadPrefixesExternalPropagation - thread names for which the external active context is used when a flow file is created / read without context<br>
+NoOTEL - will not create spans, example for this use case is when you have processors with specific name that "junk" your environment
+<br><br>
+Example: "UpdateAttribute[NoOTEL]" will not generate spans
+<br>
 
 ## Embed extensions in the OpenTelemetry Agent
 
