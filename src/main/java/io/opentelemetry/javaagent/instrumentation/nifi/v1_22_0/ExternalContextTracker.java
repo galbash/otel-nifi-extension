@@ -4,35 +4,39 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.instrumentation.api.util.VirtualField;
 import org.apache.nifi.processor.ProcessSession;
 
+import java.util.List;
+
 public class ExternalContextTracker {
-  private static final VirtualField<ProcessSession, Context> contextMap =
-      VirtualField.find(ProcessSession.class, Context.class);
+  @SuppressWarnings("rawtypes")
+  private static final VirtualField<ProcessSession, List> contextMap =
+          VirtualField.find(ProcessSession.class, List.class);
 
   private ExternalContextTracker() {}
 
   /**
    * set null to clear
    */
-  public static void set(ProcessSession session, Context context) {
-    contextMap.set(session, context);
+  public static void set(ProcessSession session, List<Context> contexts) {
+    contextMap.set(session, contexts);
   }
 
   /**
    * also resets context
    */
-  public static Context pop(ProcessSession session) {
-    Context saved = contextMap.get(session);
+  @SuppressWarnings("unchecked")
+  public static List<Context> pop(ProcessSession session) {
+    List<Context> saved = (List<Context>) contextMap.get(session);
     set(session, null);
     return saved;
   }
 
-  public static Context pop(ProcessSession session, Context defaultContext) {
-    Context saved = pop(session);
-    if (saved == null) {
-      return defaultContext;
+  public static List<Context> pop(ProcessSession session, List<Context> defaultContexts) {
+    List<Context> saved = pop(session);
+
+    if (saved == null || saved.isEmpty()) {
+      return defaultContexts;
     }
 
     return saved;
   }
-
 }

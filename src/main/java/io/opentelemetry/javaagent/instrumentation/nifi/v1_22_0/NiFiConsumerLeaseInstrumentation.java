@@ -14,6 +14,8 @@ import net.bytebuddy.matcher.ElementMatcher;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.nifi.processor.ProcessSession;
 
+import java.util.List;
+
 import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
@@ -39,6 +41,12 @@ public class NiFiConsumerLeaseInstrumentation implements TypeInstrumentation {
             .and(takesArgument(0, ProcessSession.class))
             .and(isPrivate()),
         NiFiConsumerLeaseInstrumentation.class.getName() + "$WriteDataAdvice");
+
+    typeTransformer.applyAdviceToMethod(namedOneOf("writeRecordData")
+            .and(takesArguments(3))
+            .and(takesArgument(0, ProcessSession.class))
+            .and(isPrivate()),
+        NiFiConsumerLeaseInstrumentation.class.getName() + "$WriteRecordDataAdvice");
   }
 
   @SuppressWarnings("unused")
@@ -49,6 +57,17 @@ public class NiFiConsumerLeaseInstrumentation implements TypeInstrumentation {
         @Advice.Argument(1) ConsumerRecord<byte[], byte[]> record
     ) {
       ConsumerLeaseSingletons.setContext(session, record);
+    }
+  }
+
+  @SuppressWarnings("unused")
+  public static class WriteRecordDataAdvice {
+    @Advice.OnMethodEnter(suppress = Throwable.class)
+    public static void onEnter(
+            @Advice.Argument(0) ProcessSession session,
+            @Advice.Argument(1) List<ConsumerRecord<byte[], byte[]>> records
+    ) {
+      ConsumerLeaseSingletons.setContext(session, records);
     }
   }
 }

@@ -3,6 +3,7 @@ package io.opentelemetry.javaagent.instrumentation.nifi.v1_22_0;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
@@ -14,8 +15,11 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+
+import static java.util.Collections.singletonList;
 
 public final class ProcessSessionSingletons {
   private static final Logger logger =
@@ -77,18 +81,31 @@ public final class ProcessSessionSingletons {
 
   public static void startFileHandlingSpan(ProcessSession session, FlowFile flowFile) {
     // if no external context was found, use root context since current context may be spam
-    Context externalContext = ExternalContextTracker.pop(session, getDefaultContext());
-    Context extractedContext = GlobalOpenTelemetry.getPropagators()
+    List<Context> externalContext = ExternalContextTracker.pop(session, singletonList(getDefaultContext()));
+    SpanBuilder spanBuilder = createSpanBuilder();
+    Span span;
+    if (externalContext.size() == 1){
+      Context extractedContext = GlobalOpenTelemetry.getPropagators()
         .getTextMapPropagator()
         .extract(
-            externalContext,
+            externalContext.get(0),
             // using root context because we want only the extracted context if exists
             flowFile.getAttributes(),
             FlowFileAttributesTextMapGetter.INSTANCE
         );
-    Span span = createSpanBuilder()
+      span = createSpanBuilder()
         .setParent(extractedContext)
         .startSpan();
+      }
+    else {
+      for (Context context : externalContext) {
+        SpanContext spanContext = Span.fromContext(context).getSpanContext();
+        if (spanContext.isValid()) {
+          spanBuilder.addLink(spanContext);
+        }
+      }
+      span = spanBuilder.setNoParent().startSpan();
+    }
     Scope scope = span.makeCurrent();
     ProcessSpanTracker.set(session, flowFile, span, scope);
   }
