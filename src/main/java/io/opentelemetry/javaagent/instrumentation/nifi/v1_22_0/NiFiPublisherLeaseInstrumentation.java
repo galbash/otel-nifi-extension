@@ -14,6 +14,8 @@ import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import org.apache.nifi.flowfile.FlowFile;
 
+import java.util.List;
+
 import static io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers.hasClassesNamed;
 import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
@@ -33,7 +35,9 @@ public class NiFiPublisherLeaseInstrumentation implements TypeInstrumentation {
   @Override
   public void transform(TypeTransformer typeTransformer) {
     typeTransformer.applyAdviceToMethod(
-        named("publish").and(takesArgument(0, FlowFile.class)),
+        named("publish")
+            .and(takesArgument(0, FlowFile.class))
+            .and(takesArgument(1, List.class)),
         NiFiPublisherLeaseInstrumentation.class.getName() + "$PublishAdvice");
   }
 
@@ -41,7 +45,7 @@ public class NiFiPublisherLeaseInstrumentation implements TypeInstrumentation {
   public static class PublishAdvice {
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static Scope onEnter(@Advice.Argument(0) FlowFile flowFile) {
-      return PublisherLeaseSingletons.makeFlowFileSpanCurrent(flowFile);
+      return PublisherLeaseSingletons.makeFlowFileContextCurrent(flowFile);
     }
 
     @Advice.OnMethodExit(suppress = Throwable.class, onThrowable = Throwable.class)

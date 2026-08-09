@@ -1,28 +1,29 @@
 package io.opentelemetry.javaagent.instrumentation.nifi.v1_22_0;
 
+import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
+import io.opentelemetry.javaagent.bootstrap.Java8BytecodeBridge;
 import org.apache.nifi.flowfile.FlowFile;
 
-import java.util.logging.Logger;
-
 public final class PublisherLeaseSingletons {
-  private static final Logger logger =
-      Logger.getLogger(PublisherLeaseSingletons.class.getName());
-
   private PublisherLeaseSingletons() {}
 
 
-  public static Scope makeFlowFileSpanCurrent(FlowFile flowFile) {
+  public static Scope makeFlowFileContextCurrent(FlowFile flowFile) {
     if (flowFile == null) {
       return null;
     }
-    Span span = ProcessSpanTracker.getSpanForCurrentThread(flowFile);
-    if (span == null) {
-      logger.fine("No tracked span found for flow file being published; leaving context as-is");
+    Context extractedContext = GlobalOpenTelemetry.getPropagators()
+        .getTextMapPropagator()
+        .extract(
+            Java8BytecodeBridge.rootContext(),
+            flowFile.getAttributes(),
+            FlowFileAttributesTextMapGetter.INSTANCE);
+    if (!Span.fromContext(extractedContext).getSpanContext().isValid()) {
       return null;
     }
-    logger.fine("Activating flow file span for kafka publish");
-    return span.makeCurrent();
+    return extractedContext.makeCurrent();
   }
 }

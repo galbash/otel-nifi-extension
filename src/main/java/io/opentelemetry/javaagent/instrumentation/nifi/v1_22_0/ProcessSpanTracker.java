@@ -17,9 +17,6 @@ public class ProcessSpanTracker {
   public static final String SCOPE_SUFFIX = "-scope";
   private static final VirtualField<ProcessSession, ConcurrentHashMap<String, Object>> processMap =
       VirtualField.find(ProcessSession.class, ConcurrentHashMap.class);
-
-  private static final VirtualField<Thread, ConcurrentHashMap<String, Span>> threadFlowFileSpanMap =
-      VirtualField.find(Thread.class, ConcurrentHashMap.class);
   private static final Logger logger = Logger.getLogger(ProcessSpanTracker.class.getName());
 
 
@@ -30,26 +27,6 @@ public class ProcessSpanTracker {
     ConcurrentHashMap<String, Object> map = getOrCreateMap(session);
     map.put(genSpanKey(id), span);
     map.put(genScopeKey(id), scope);
-    getOrCreateThreadMap().put(id, span);
-  }
-
-
-  public static Span getSpanForCurrentThread(FlowFile file) {
-    ConcurrentHashMap<String, Span> map = threadFlowFileSpanMap.get(Thread.currentThread());
-    if (map == null) {
-      return null;
-    }
-    return map.get(file.getAttribute(CoreAttributes.UUID.key()));
-  }
-
-  private static ConcurrentHashMap<String, Span> getOrCreateThreadMap() {
-    Thread thread = Thread.currentThread();
-    ConcurrentHashMap<String, Span> map = threadFlowFileSpanMap.get(thread);
-    if (map == null) {
-      map = new ConcurrentHashMap<>();
-      threadFlowFileSpanMap.set(thread, map);
-    }
-    return map;
   }
 
   private static String genSpanKey(String id) {
@@ -84,18 +61,13 @@ public class ProcessSpanTracker {
 
   public static void close(ProcessSession session) {
     ConcurrentHashMap<String, Object> map = getOrCreateMap(session);
-    ConcurrentHashMap<String, Span> threadMap = threadFlowFileSpanMap.get(Thread.currentThread());
-    map.forEach((key, value) -> {
+    map.values().forEach(value -> {
       if (value instanceof Scope) {
         ((Scope) value).close();
       } else if (value instanceof Span) {
         ((Span) value).end();
       } else {
         logger.warning("Got a non-scope/span value: " + value);
-      }
-      // drop the flow file -> span entry from the per-thread lookup used by the publish side
-      if (threadMap != null && key.endsWith(SPAN_SUFFIX)) {
-        threadMap.remove(key.substring(0, key.length() - SPAN_SUFFIX.length()));
       }
     });
     map.clear();
