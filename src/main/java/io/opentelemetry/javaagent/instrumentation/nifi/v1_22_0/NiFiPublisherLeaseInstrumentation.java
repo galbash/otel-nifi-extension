@@ -5,7 +5,6 @@
 
 package io.opentelemetry.javaagent.instrumentation.nifi.v1_22_0;
 
-import io.opentelemetry.context.Scope;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeInstrumentation;
 import io.opentelemetry.javaagent.extension.instrumentation.TypeTransformer;
 import io.opentelemetry.javaagent.extension.matcher.AgentElementMatchers;
@@ -43,16 +42,11 @@ public class NiFiPublisherLeaseInstrumentation implements TypeInstrumentation {
 
   @SuppressWarnings("unused")
   public static class PublishAdvice {
+    // NOTE (experimental): the onExit scope.close() was removed on purpose to test behavior without
+    // it. The context activated here is intentionally NOT restored after publish returns.
     @Advice.OnMethodEnter(suppress = Throwable.class)
-    public static Scope onEnter(@Advice.Argument(0) FlowFile flowFile) {
-      return PublisherLeaseSingletons.makeFlowFileContextCurrent(flowFile);
-    }
-
-    @Advice.OnMethodExit(suppress = Throwable.class, onThrowable = Throwable.class)
-    public static void onExit(@Advice.Enter Scope scope) {
-      if (scope != null) {
-        scope.close();
-      }
+    public static void onEnter(@Advice.Argument(0) FlowFile flowFile) {
+      PublisherLeaseSingletons.makeFlowFileContextCurrent(flowFile);
     }
   }
 }
