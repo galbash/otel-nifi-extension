@@ -42,11 +42,9 @@ public class NiFiPublisherLeaseInstrumentation implements TypeInstrumentation {
 
   @SuppressWarnings("unused")
   public static class PublishAdvice {
-    // NOTE (experimental): the onExit scope.close() was removed on purpose to test behavior without
-    // it. The context activated here is intentionally NOT restored after publish returns.
     @Advice.OnMethodEnter(suppress = Throwable.class)
     public static void onEnter(@Advice.Argument(0) FlowFile flowFile) {
-      PublisherLeaseSingletons.makeFlowFileContextCurrent(flowFile);
+      PublisherLeaseSingletons.setContext(flowFile);
     }
   }
 }

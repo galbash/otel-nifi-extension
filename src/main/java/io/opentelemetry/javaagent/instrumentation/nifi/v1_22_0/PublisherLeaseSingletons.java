@@ -3,7 +3,6 @@ package io.opentelemetry.javaagent.instrumentation.nifi.v1_22_0;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Context;
-import io.opentelemetry.context.Scope;
 import io.opentelemetry.javaagent.bootstrap.Java8BytecodeBridge;
 import org.apache.nifi.flowfile.FlowFile;
 
@@ -11,9 +10,9 @@ public final class PublisherLeaseSingletons {
   private PublisherLeaseSingletons() {}
 
 
-  public static Scope makeFlowFileContextCurrent(FlowFile flowFile) {
+  public static void setContext(FlowFile flowFile) {
     if (flowFile == null) {
-      return null;
+      return;
     }
     Context extractedContext = GlobalOpenTelemetry.getPropagators()
         .getTextMapPropagator()
@@ -22,8 +21,8 @@ public final class PublisherLeaseSingletons {
             flowFile.getAttributes(),
             FlowFileAttributesTextMapGetter.INSTANCE);
     if (!Span.fromContext(extractedContext).getSpanContext().isValid()) {
-      return null;
+      return;
     }
-    return extractedContext.makeCurrent();
+    extractedContext.makeCurrent();
   }
 }
