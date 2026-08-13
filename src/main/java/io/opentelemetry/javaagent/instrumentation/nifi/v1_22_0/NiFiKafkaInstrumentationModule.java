@@ -28,13 +28,15 @@ public final class NiFiKafkaInstrumentationModule extends InstrumentationModule 
 
   @Override
   public ElementMatcher.Junction<ClassLoader> classLoaderMatcher() {
-    return hasClassesNamed("org.apache.nifi.processors.kafka.pubsub.ConsumerLease");
+    return hasClassesNamed("org.apache.nifi.processors.kafka.pubsub.ConsumerLease")
+        .or(hasClassesNamed("org.apache.nifi.processors.kafka.pubsub.PublisherLease"));
   }
 
   @Override
   public List<TypeInstrumentation> typeInstrumentations() {
     ArrayList<TypeInstrumentation> result = new ArrayList<>();
     result.add(new NiFiConsumerLeaseInstrumentation());
+    result.add(new NiFiPublisherLeaseInstrumentation());
     return result;
   }
 }
