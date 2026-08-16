@@ -15,7 +15,6 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 
 import java.util.*;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -40,36 +39,60 @@ public final class ProcessSessionSingletons {
           Collections.singletonList("ListenHTTP")
   );
 
+  static List<String> blacklistProcessorsByName = AgentInstrumentationConfig.get().getList(
+          "otel.instrumentation.nifi.blacklist-processors-by-name",
+          Collections.emptyList()
+  );
+
+  static List<String> blacklistProcessorsByType = AgentInstrumentationConfig.get().getList(
+          "otel.instrumentation.nifi.blacklist-processors-by-type",
+          Collections.emptyList()
+  );
+
   private ProcessSessionSingletons() {}
 
-  private static SpanBuilder createSpanBuilder() {
+  private static Optional<SpanBuilder> createSpanBuilder() {
     ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
+    ArrayList<ConfigTagEnum> configTagEnums = pConfig.processContext != null
+        ? getProcessorTags(pConfig.processContext.getName())
+        : new ArrayList<>();
     if (pConfig.processContext != null && pConfig.connectable != null) {
-      return tracer.spanBuilder(
+      if (blacklistProcessorsByName.contains(pConfig.processContext.getName())
+          || blacklistProcessorsByType.contains(pConfig.connectable.getComponentType())
+          || configTagEnums.contains(ConfigTagEnum.NoOTEL)) {
+        return Optional.empty();
+      }
+      return Optional.of(tracer.spanBuilder(
               pConfig.connectable.getComponentType() + ":" + pConfig.processContext.getName())
           .setAttribute("nifi.component.name", pConfig.processContext.getName())
           .setAttribute("nifi.component.type", pConfig.connectable.getComponentType())
           .setAttribute("nifi.processgroup.name", pConfig.connectable.getProcessGroup().getName())
-          .setAttribute("nifi.component.id", pConfig.connectable.getIdentifier());
+          .setAttribute("nifi.component.id", pConfig.connectable.getIdentifier()));
     } else {
-      for (String prefix: externalPropagationThreadPrefixes) {
-        if (Thread.currentThread().getName().startsWith(prefix)) {
-          return tracer.spanBuilder(prefix);
+      for (String prefix : externalPropagationThreadPrefixes) {
+        if (Thread.currentThread().getName().startsWith(prefix)
+            || configTagEnums.contains(ConfigTagEnum.ThreadPrefixesExternalPropagation)) {
+          return Optional.of(tracer.spanBuilder(prefix));
         }
       }
     }
-    return tracer.spanBuilder("Handle Flow File");
+    return Optional.of(tracer.spanBuilder("Handle Flow File"));
   }
 
-  private static Context getDefaultContext() {
+  public static Context getDefaultContext() {
     ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
+    ArrayList<ConfigTagEnum> configTagEnums = pConfig.processContext != null
+        ? getProcessorTags(pConfig.processContext.getName())
+        : new ArrayList<>();
     if (pConfig.connectable != null) {
-      if (externalPropagationProcessors.contains(pConfig.connectable.getComponentType())) {
+      if (externalPropagationProcessors.contains(pConfig.connectable.getComponentType())
+          || configTagEnums.contains(ConfigTagEnum.ExternalPropagation)) {
         return Java8BytecodeBridge.currentContext();
       }
     } else {
-      for (String prefix: externalPropagationThreadPrefixes) {
-        if (Thread.currentThread().getName().startsWith(prefix)) {
+      for (String prefix : externalPropagationThreadPrefixes) {
+        if (Thread.currentThread().getName().startsWith(prefix)
+            || configTagEnums.contains(ConfigTagEnum.ThreadPrefixesExternalPropagation)) {
           return Java8BytecodeBridge.currentContext();
         }
       }
@@ -82,22 +105,23 @@ public final class ProcessSessionSingletons {
   public static void startFileHandlingSpan(ProcessSession session, FlowFile flowFile) {
     // if no external context was found, use root context since current context may be spam
     List<Context> externalContext = ExternalContextTracker.pop(session, singletonList(getDefaultContext()));
-    SpanBuilder spanBuilder = createSpanBuilder();
+    Optional<SpanBuilder> spanBuilderOpt = createSpanBuilder();
+    if (!spanBuilderOpt.isPresent()) {
+      return;
+    }
+    SpanBuilder spanBuilder = spanBuilderOpt.get();
     Span span;
-    if (externalContext.size() == 1){
+    if (externalContext.size() == 1) {
       Context extractedContext = GlobalOpenTelemetry.getPropagators()
-        .getTextMapPropagator()
-        .extract(
-            externalContext.get(0),
-            // using root context because we want only the extracted context if exists
-            flowFile.getAttributes(),
-            FlowFileAttributesTextMapGetter.INSTANCE
-        );
-      span = createSpanBuilder()
-        .setParent(extractedContext)
-        .startSpan();
-      }
-    else {
+          .getTextMapPropagator()
+          .extract(
+              externalContext.get(0),
+              // using root context because we want only the extracted context if exists
+              flowFile.getAttributes(),
+              FlowFileAttributesTextMapGetter.INSTANCE
+          );
+      span = spanBuilder.setParent(extractedContext).startSpan();
+    } else {
       for (Context context : externalContext) {
         SpanContext spanContext = Span.fromContext(context).getSpanContext();
         if (spanContext.isValid()) {
@@ -127,8 +151,11 @@ public final class ProcessSessionSingletons {
       Collection<FlowFile> inputFlowFiles,
       FlowFile outputFlowFile
   ) {
-
-    SpanBuilder spanBuilder = createSpanBuilder();
+    Optional<SpanBuilder> spanBuilderOpt = createSpanBuilder();
+    if (!spanBuilderOpt.isPresent()) {
+      return;
+    }
+    SpanBuilder spanBuilder = spanBuilderOpt.get();
     List<Context> parentContexts = inputFlowFiles.stream()
         .map(flowFile -> GlobalOpenTelemetry.getPropagators()
             .getTextMapPropagator()
@@ -151,7 +178,11 @@ public final class ProcessSessionSingletons {
           FlowFile createdFile
   ) {
     ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
-    if (useLinksProcessors.contains(pConfig.connectable.getComponentType())) {
+    ArrayList<ConfigTagEnum> configTagEnums = pConfig.processContext != null
+        ? getProcessorTags(pConfig.processContext.getName())
+        : new ArrayList<>();
+    if (useLinksProcessors.contains(pConfig.connectable.getComponentType())
+        || configTagEnums.contains(ConfigTagEnum.UseLinks)) {
       startMergeFilesSpan(session, Collections.singletonList(inputFile), createdFile);
     } else {
       startFileHandlingSpan(session, createdFile);
@@ -170,7 +201,6 @@ public final class ProcessSessionSingletons {
 
     Span span = ProcessSpanTracker.getSpan(processSession, flowFile);
     if (span == null) {
-      logger.warning("No active span for flow file found");
       return flowFile;
     }
     for (Map.Entry<String, String> entry : flowFile.getAttributes().entrySet()) {
@@ -193,5 +223,15 @@ public final class ProcessSessionSingletons {
     return flowFiles.stream()
         .map(flowFile -> handleTransferFlowFile(flowFile, relationship, processSession))
         .collect(Collectors.toList());
+  }
+
+  public static ArrayList<ConfigTagEnum> getProcessorTags(String processorName) {
+    ArrayList<ConfigTagEnum> configTagEnums = new ArrayList<>();
+    for (ConfigTagEnum configTag : ConfigTagEnum.values()) {
+      if (processorName.contains(configTag.name())) {
+        configTagEnums.add(configTag);
+      }
+    }
+    return configTagEnums;
   }
 }

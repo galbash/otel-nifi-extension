@@ -53,7 +53,6 @@ public class ProcessSpanTracker {
     ConcurrentHashMap<String, Object> map = getOrCreateMap(session);
     Object value = map.get(genSpanKey(id));
     if (!(value instanceof Span)) {
-      logger.warning("trying to get non Span value: " + value);
       return null;
     }
     return (Span) value;
