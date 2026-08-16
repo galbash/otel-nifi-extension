@@ -79,7 +79,7 @@ public final class ProcessSessionSingletons {
     return Optional.of(tracer.spanBuilder("Handle Flow File"));
   }
 
-  public static Context getDefaultContext() {
+  private static Context getDefaultContext() {
     ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
     ArrayList<ConfigTagEnum> configTagEnums = pConfig.processContext != null
         ? getProcessorTags(pConfig.processContext.getName())
