@@ -207,8 +207,9 @@ public final class ProcessSessionSingletons {
 
   public static ArrayList<ConfigTagEnum> getProcessorTags(String processorName) {
     ArrayList<ConfigTagEnum> configTagEnums = new ArrayList<>();
+    String lowerName = processorName.toLowerCase();
     for (ConfigTagEnum configTag : ConfigTagEnum.values()) {
-      if (processorName.contains(configTag.name())) {
+      if (lowerName.contains(configTag.name().toLowerCase())) {
         configTagEnums.add(configTag);
       }
     }
