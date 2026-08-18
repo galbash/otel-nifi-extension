@@ -49,7 +49,7 @@ java.arg.27=-Dotel.javaagent.debug=true
 
 ## Tags Options
 You can stop tracing a single processor at runtime by adding the `NoOTEL` tag **anywhere** in that
-processor's **name** on the canvas (a substring match — the `[...]` below is only a readability convention).
+processor's **name** on the canvas
 
 | Tag      | Effect                                                          | Example name              |
 |----------|-----------------------------------------------------------------|---------------------------|
