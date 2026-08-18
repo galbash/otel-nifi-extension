@@ -205,7 +205,7 @@ public final class ProcessSessionSingletons {
         .collect(Collectors.toList());
   }
 
-  public static ArrayList<ConfigTagEnum> getProcessorTags(String processorName) {
+  private static ArrayList<ConfigTagEnum> getProcessorTags(String processorName) {
     ArrayList<ConfigTagEnum> configTagEnums = new ArrayList<>();
     String lowerName = processorName.toLowerCase();
     for (ConfigTagEnum configTag : ConfigTagEnum.values()) {
