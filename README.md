@@ -47,6 +47,14 @@ java.arg.27=-Dotel.javaagent.debug=true
 | `otel.instrumentation.nifi.use-links-processors`                 | List | []                        | A list of processors for which when a FlowFile is created/cloned from another flow file, the child span will be set as a link and not a direct child. Useful for split use cases                                                                               |
 | `otel.instrumentation.nifi.external-propagation-thread-prefixes` | List | `ListenHTTP,Consume AMPQ` | A list of thread names for which the external active context is used when a flow file is created / read without context. Useful for input processors that get messages on a different thread for which the `external-propagation-processors` flag doesn't work |
 
+## Tags Options
+You can stop tracing a single processor at runtime by adding the `NoOTEL` tag **anywhere** in that
+processor's **name** on the canvas (a substring match — the `[...]` below is only a readability convention).
+
+| Tag      | Effect                                                          | Example name              |
+|----------|-----------------------------------------------------------------|---------------------------|
+| `NoOTEL` | Do not create spans for this processor (per-processor opt-out)  | `UpdateAttribute[NoOTEL]` |
+
 ## Embed extensions in the OpenTelemetry Agent
 
 To simplify deployment, you can embed extensions into the OpenTelemetry Java Agent to produce a single jar file. With an integrated extension, you no longer need the `-Dotel.javaagent.extensions` command line option.
