@@ -42,23 +42,29 @@ public final class ProcessSessionSingletons {
 
   private ProcessSessionSingletons() {}
 
-  private static SpanBuilder createSpanBuilder() {
+  private static Optional<SpanBuilder> createSpanBuilder() {
     ActiveConnectableConfig pConfig = ActiveConnectableSaver.get();
+    ArrayList<ConfigTagEnum> configTagEnums = pConfig.processContext != null
+        ? getProcessorTags(pConfig.processContext.getName())
+        : new ArrayList<>();
     if (pConfig.processContext != null && pConfig.connectable != null) {
-      return tracer.spanBuilder(
+      if (configTagEnums.contains(ConfigTagEnum.NoOTEL)) {
+        return Optional.empty();
+      }
+      return Optional.of(tracer.spanBuilder(
               pConfig.connectable.getComponentType() + ":" + pConfig.processContext.getName())
           .setAttribute("nifi.component.name", pConfig.processContext.getName())
           .setAttribute("nifi.component.type", pConfig.connectable.getComponentType())
           .setAttribute("nifi.processgroup.name", pConfig.connectable.getProcessGroup().getName())
-          .setAttribute("nifi.component.id", pConfig.connectable.getIdentifier());
+          .setAttribute("nifi.component.id", pConfig.connectable.getIdentifier()));
     } else {
       for (String prefix: externalPropagationThreadPrefixes) {
         if (Thread.currentThread().getName().startsWith(prefix)) {
-          return tracer.spanBuilder(prefix);
+          return Optional.of(tracer.spanBuilder(prefix));
         }
       }
     }
-    return tracer.spanBuilder("Handle Flow File");
+    return Optional.of(tracer.spanBuilder("Handle Flow File"));
   }
 
   private static Context getDefaultContext() {
@@ -82,22 +88,23 @@ public final class ProcessSessionSingletons {
   public static void startFileHandlingSpan(ProcessSession session, FlowFile flowFile) {
     // if no external context was found, use root context since current context may be spam
     List<Context> externalContext = ExternalContextTracker.pop(session, singletonList(getDefaultContext()));
-    SpanBuilder spanBuilder = createSpanBuilder();
+    Optional<SpanBuilder> spanBuilderOpt = createSpanBuilder();
+    if (!spanBuilderOpt.isPresent()) {
+      return;
+    }
+    SpanBuilder spanBuilder = spanBuilderOpt.get();
     Span span;
-    if (externalContext.size() == 1){
+    if (externalContext.size() == 1) {
       Context extractedContext = GlobalOpenTelemetry.getPropagators()
-        .getTextMapPropagator()
-        .extract(
-            externalContext.get(0),
-            // using root context because we want only the extracted context if exists
-            flowFile.getAttributes(),
-            FlowFileAttributesTextMapGetter.INSTANCE
-        );
-      span = createSpanBuilder()
-        .setParent(extractedContext)
-        .startSpan();
-      }
-    else {
+          .getTextMapPropagator()
+          .extract(
+              externalContext.get(0),
+              // using root context because we want only the extracted context if exists
+              flowFile.getAttributes(),
+              FlowFileAttributesTextMapGetter.INSTANCE
+          );
+      span = spanBuilder.setParent(extractedContext).startSpan();
+    } else {
       for (Context context : externalContext) {
         SpanContext spanContext = Span.fromContext(context).getSpanContext();
         if (spanContext.isValid()) {
@@ -127,8 +134,11 @@ public final class ProcessSessionSingletons {
       Collection<FlowFile> inputFlowFiles,
       FlowFile outputFlowFile
   ) {
-
-    SpanBuilder spanBuilder = createSpanBuilder();
+    Optional<SpanBuilder> spanBuilderOpt = createSpanBuilder();
+    if (!spanBuilderOpt.isPresent()) {
+      return;
+    }
+    SpanBuilder spanBuilder = spanBuilderOpt.get();
     List<Context> parentContexts = inputFlowFiles.stream()
         .map(flowFile -> GlobalOpenTelemetry.getPropagators()
             .getTextMapPropagator()
@@ -193,5 +203,16 @@ public final class ProcessSessionSingletons {
     return flowFiles.stream()
         .map(flowFile -> handleTransferFlowFile(flowFile, relationship, processSession))
         .collect(Collectors.toList());
+  }
+
+  private static ArrayList<ConfigTagEnum> getProcessorTags(String processorName) {
+    ArrayList<ConfigTagEnum> configTagEnums = new ArrayList<>();
+    String lowerName = processorName.toLowerCase();
+    for (ConfigTagEnum configTag : ConfigTagEnum.values()) {
+      if (lowerName.contains(configTag.name().toLowerCase())) {
+        configTagEnums.add(configTag);
+      }
+    }
+    return configTagEnums;
   }
 }
